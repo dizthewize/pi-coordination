@@ -44,8 +44,8 @@ const PlanParams = Type.Object({
 	output: Type.Optional(Type.String({ description: "Where to save spec (default: auto-named in specs/)" })),
 
 	// Models
-	model: Type.Optional(Type.String({ description: "Model for elaboration (default: frontier)" })),
-	scoutModel: Type.Optional(Type.String({ description: "Model for scout (default: fast)" })),
+	model: Type.Optional(Type.String({ description: "Model for elaboration (inferred from pi defaultModel if not set)" })),
+	scoutModel: Type.Optional(Type.String({ description: "Model for scout (inferred from pi defaultModel if not set)" })),
 
 	// Behavior
 	maxInterviewRounds: Type.Optional(Type.Number({ description: "Limit interview rounds (default: 5 new, 3 refine)" })),
@@ -345,7 +345,7 @@ export function createPlanTool(events: EventBus): ToolDefinition<typeof PlanPara
 			"Create a structured spec from prose, idea, or PRD. Conducts an interview, analyzes the codebase, and produces a TASK-XX format spec ready for coordinate tool.",
 		parameters: PlanParams,
 
-		async execute(_toolCallId, params, onUpdate, ctx, signal) {
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const result = await runPlan(
 				{ cwd: ctx.cwd, events },
 				{

@@ -214,6 +214,6 @@ If all components integrate correctly, set allPassing: true.`;
 		summary: parsed.summary || "",
 		allPassing: parsed.allPassing ?? issues.length === 0,
 		duration: Date.now() - startTime,
-		cost: result.usage.cost,
+		cost: result.usage?.cost ?? 0,
 	};
 }

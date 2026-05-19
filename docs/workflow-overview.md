@@ -348,7 +348,7 @@ coordinate({
   },
 
   // Cost
-  costLimit: number,                // End gracefully at limit (default: 40)
+  costLimit: number,                // End gracefully at limit (default: $40, set 0 for free local models)
 
   // Resume
   resume: string,                   // Checkpoint ID to resume from
@@ -365,7 +365,7 @@ coordinate({
   validate: boolean,                // Run validation after (default: false)
   validateStream: boolean,          // Stream warnings (default: false)
 
-  // Model overrides
+  // Model overrides — if omitted, each agent inherits pi's defaultModel
   coordinator: string | { model: string },
   worker: string | { model: string },
   reviewer: string | { model: string },

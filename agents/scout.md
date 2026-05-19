@@ -1,7 +1,7 @@
 ---
 name: scout
 description: Analyzes codebase to provide structured context for coordination planner
-model: claude-haiku-4-5
+# model: (inferred from pi defaultModel)
 tools: read, bash, write
 extensions: ../../extensions/coordination/hooks/enforce-scout-format.ts
 system-prompt-mode: override

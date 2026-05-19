@@ -202,10 +202,11 @@ export async function runAgentSDK(config: SDKRunnerConfig): Promise<SingleResult
 	const jsonlStream = fs.createWriteStream(artifactPaths.jsonlPath, { flags: "a" });
 
 	let rawOutput = "";
+	let previousIdentity: string | undefined;
 
 	try {
 		// Set agent identity for extensions to check
-		const previousIdentity = process.env.PI_AGENT_IDENTITY;
+		previousIdentity = process.env.PI_AGENT_IDENTITY;
 		process.env.PI_AGENT_IDENTITY = agent.name;
 
 		// Log agent configuration
@@ -563,11 +564,9 @@ async function getModelRegistry(): Promise<any> {
 
 	modelRegistryInitPromise = (async () => {
 		try {
-			const { discoverModels, discoverAuthStorage } = await import("@mariozechner/pi-coding-agent");
-
-			// Both functions use getDefaultAgentDir() internally as default parameter
-			const authStorage = discoverAuthStorage();
-			cachedModelRegistry = discoverModels(authStorage);
+			const { AuthStorage, InMemoryAuthStorageBackend, ModelRegistry } = await import("@mariozechner/pi-coding-agent");
+			const authStorage = new AuthStorage(new InMemoryAuthStorageBackend());
+			cachedModelRegistry = ModelRegistry.inMemory(authStorage);
 			return cachedModelRegistry;
 		} catch (err) {
 			// Clear the promise so future calls can retry
@@ -598,7 +597,16 @@ async function resolveModel(modelString: string): Promise<any> {
 		// Check for explicit provider/model format
 		if (modelString.includes("/")) {
 			const [provider, modelId] = modelString.split("/", 2);
-			const model = modelRegistry.find(provider, modelId);
+			let model = modelRegistry.find(provider, modelId);
+			// Provider fallback: ollama-cloud models aren't in the SDK registry but
+			// map to opencode-go equivalents (e.g. ollama-cloud/kimi-k2.6 → opencode-go/kimi-k2.6)
+			if (!model && provider === "ollama-cloud") {
+				model = modelRegistry.find("opencode-go", modelId);
+				if (model) {
+					console.log(`[sdk-runner] Resolved model via provider alias: opencode-go/${modelId}`);
+					return model;
+				}
+			}
 			if (model) {
 				console.log(`[sdk-runner] Resolved model: ${provider}/${modelId}`);
 				return model;

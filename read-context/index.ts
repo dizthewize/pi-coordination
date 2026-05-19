@@ -30,9 +30,9 @@ export function createReadContextTool(): ToolDefinition<typeof ReadContextParams
 		async execute(
 			_toolCallId: string,
 			params: ReadContextParamsType,
-			_onUpdate: AgentToolUpdateCallback<ReadContextDetails> | undefined,
+			signal: AbortSignal | undefined,
+			onUpdate: AgentToolUpdateCallback<ReadContextDetails> | undefined,
 			ctx: ExtensionContext,
-			_signal?: AbortSignal,
 		): Promise<AgentToolResult<ReadContextDetails>> {
 			const { path: filePath, section = "all" } = params;
 

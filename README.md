@@ -136,9 +136,10 @@ Use `false` to disable features:
 
 ```json
 {
-  "useSDKWorkers": true,
   "models": {
-    "worker": "claude-sonnet-4-20250514"
+    "coordinator": "opencode-go/deepseek-v4-pro",
+    "worker": "ollama-cloud/kimi-k2.6",
+    "reviewer": "opencode-go/deepseek-v4-pro"
   }
 }
 ```
@@ -221,18 +222,42 @@ coordinate({
   validate: true,
   reviewCycles: 5,              // worker self-review cycles (false to disable)
   supervisor: true,             // or { nudgeThresholdMs: 180000, ... }
-  coordinator: "claude-opus-4-5",
-  worker: "claude-sonnet-4-5",
-  reviewer: "claude-opus-4-5"
+  coordinator: "opencode-go/deepseek-v4-pro",
+  worker: "ollama-cloud/kimi-k2.6",
+  reviewer: "opencode-go/deepseek-v4-pro"
 })
 ```
 
 **Note:** The `coordinate` tool requires a valid TASK-XX format spec. If your input isn't a valid spec, you'll get an error suggesting to use the `plan` tool first.
 
 **Model Resolution Order**: For each phase, models are resolved in this priority:
-1. Per-call parameter (e.g., `worker: "model-name"`)
+1. Per-call parameter (e.g., `worker: "opencode-go/deepseek-v4-pro"`)
 2. Agent frontmatter `model:` field in `~/.pi/agent/agents/coordination/*.md`
 3. Pi's global `defaultModel` from `~/.pi/agent/settings.json`
+
+**Important change:** The built-in coordination agents (`coordinator`, `worker`, `reviewer`, `planner`, `scout`) no longer hardcode Anthropic Claude models. Their `model:` frontmatter fields are commented out, so they **inherit your system defaultModel** by default. This means they automatically use whatever model pi is currently set to.
+
+**Per-agent override examples:**
+```typescript
+// All agents use system default
+coordinate({ plan: "./spec.md", agents: 4 })
+
+// Override specific agents
+coordinate({
+  plan: "./spec.md",
+  coordinator: "opencode-go/deepseek-v4-pro",   // complex orchestration
+  worker: "ollama-cloud/kimi-k2.6",             // parallel tasks
+  reviewer: "opencode-go/deepseek-v4-pro",    // code review
+})
+
+// Free local models — disable cost tracking
+coordinate({
+  plan: "./spec.md",
+  costLimit: 0,
+  reviewCycles: false,
+  supervisor: false,
+})
+```
 
 To disable logging, set `logPath: ""` or use `PI_COORDINATION_LOG_DIR` env var.
 
@@ -861,7 +886,7 @@ Agent prompts are defined in markdown files with YAML frontmatter:
 ---
 name: my-agent
 description: What this agent does
-model: claude-sonnet-4-20250514
+# model: opencode-go/deepseek-v4-pro  # optional — omit to inherit defaultModel
 tools: read, bash
 system-prompt-mode: override
 ---
@@ -869,14 +894,18 @@ system-prompt-mode: override
 Your custom system prompt here...
 ```
 
-**Frontmatter options:**
-| Option | Description |
-|--------|-------------|
-| `name` | Agent identifier (required) |
-| `description` | Human-readable description (required) |
-| `model` | Model override for this agent |
-| `tools` | Comma-separated tool list |
-| `system-prompt-mode` | `append` (default) or `override` |
+**Model frontmatter example:**
+```yaml
+---
+name: my-worker
+description: Custom worker with override model
+# model: "opencode-go/deepseek-v4-pro"   # optional — omit to inherit defaultModel
+tools: read, bash
+system-prompt-mode: append
+---
+```
+
+By default, no `model:` is specified. This makes the agent inherit pi's current `defaultModel` (e.g. `ollama-cloud/kimi-k2.6`), so it automatically follows whatever model the user has selected in their system settings. To force a specific model, add `model: your-model-name`.
 
 **System prompt modes:**
 - `append` — Agent prompt is **added** to pi's default coding assistant prompt

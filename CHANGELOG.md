@@ -4,6 +4,32 @@ All notable changes to pi-coordination.
 
 ---
 
+## 2026-05-19
+
+### Fixed
+- **Cost accounting null-safety** — Fixed `TypeError: Cannot read properties of undefined (reading 'toFixed')` crashes:
+  - Guarded `formatCost()` in `coordinate/render-utils.ts` and `coordinate/dashboard.ts` to return `"$—"` for `undefined`/`null`/`NaN`
+  - Guarded all inline `.toFixed()` calls in `log-generator.ts`, `progress.ts`, `pipeline.ts`
+  - Guarded `.toFixed()` in `subagent/render.ts` `formatTokens()`
+  - Protected `cost.json` reads with fallbacks (includes `limit: 40`) in dashboard `readState()` paths
+- **Missing integration phase in cost state** — Added `"integration": 0` to `initializeCostState()` in `pipeline.ts`. Without it, integration review completion serialized an undefined cost, which downstream formatting code crashed on.
+- **Review/integration usage access** — Changed `result.usage.cost` → `result.usage?.cost ?? 0` in `coordinate/phases/review.ts` and `coordinate/phases/integration.ts` to handle missing usage objects on early exits.
+- **Parameter-order mismatch in execute()** — Fixed `plan/index.ts` and `coordinate/index.ts` `execute()` signatures from `execute(toolCallId, params, onUpdate, ctx, signal)` to `execute(toolCallId, params, signal, onUpdate, ctx)` to match framework contract.
+
+### Changed
+- **Model resolution now inherits system defaultModel** — Built-in agent frontmatter files (`coordinator`, `worker`, `reviewer`, `planner`, `scout`) no longer hardcode Anthropic Claude models. Their `model:` fields are commented out, so they inherit pi's `defaultModel` from `~/.pi/agent/settings.json`.
+  - If your system uses `ollama-cloud`, `opencode-go`, or other providers, the extension now uses them automatically.
+  - Per-agent overrides still work via `coordinate({ coordinator: "model", worker: "model", reviewer: "model" })`.
+  - `plan()` tool `model`/`scoutModel` descriptions updated to say "inferred from pi defaultModel" instead of the old `frontier`/`fast` defaults.
+- **Cost limit documentation** — Added note that `costLimit: 0` disables cost tracking, useful for free local models.
+
+### Documentation
+- Updated `skills/coordination/SKILL.md` with model resolution section and cost-safety health check item.
+- Updated `README.md` agent customization section to reflect commented-out `model:` frontmatter.
+- Updated `docs/workflow-overview.md` plan/coordinate option blocks with new model descriptions.
+
+---
+
 ## 2026-01-10
 
 ### Added

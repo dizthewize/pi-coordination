@@ -109,7 +109,8 @@ export function formatDuration(ms: number): string {
 	return `${minutes}m${seconds.toString().padStart(2, "0")}s`;
 }
 
-export function formatCost(cost: number): string {
+export function formatCost(cost: number | undefined | null): string {
+	if (cost == null || Number.isNaN(cost)) return "$—";
 	return `$${cost.toFixed(2)}`;
 }
 
@@ -525,7 +526,7 @@ export function renderEventLine(
 	theme: Theme,
 	expanded: boolean = false,
 ): string {
-	const elapsed = `+${((ev.timestamp - firstTs) / 1000).toFixed(1)}s`;
+	const elapsed = ev.timestamp != null ? `+${((ev.timestamp - firstTs) / 1000).toFixed(1)}s` : "—";
 	const workerId = (ev as { workerId?: string }).workerId;
 	const contextTokens = (ev as { contextTokens?: number }).contextTokens;
 

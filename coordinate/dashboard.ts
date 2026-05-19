@@ -37,7 +37,8 @@ function formatDuration(ms: number): string {
 	return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
 }
 
-function formatCost(cost: number): string {
+function formatCost(cost: number | undefined | null): string {
+	if (cost == null || Number.isNaN(cost)) return "$—";
 	return `$${cost.toFixed(2)}`;
 }
 
@@ -1136,9 +1137,13 @@ export class MiniFooter implements Component {
 			if (!fs.existsSync(this.coordDir)) return null;
 
 			const workers = readWorkerStatesSync(this.coordDir);
-			const costState = readJsonSync<CostState>(path.join(this.coordDir, "cost.json"));
-
-			let currentPhase = "unknown";
+			const costState = readJsonSync<CostState>(path.join(this.coordDir, "cost.json")) || {
+				total: 0,
+				byPhase: {} as Record<PipelinePhase, number>,
+				byWorker: {},
+				limit: 40,
+				limitReached: false,
+			};
 			let startedAt = Date.now();
 			let isComplete = false;
 			let isFailed = false;
@@ -1442,8 +1447,13 @@ export class MiniDashboard implements Component {
 			if (!fs.existsSync(this.coordDir)) return null;
 
 			const workers = readWorkerStatesSync(this.coordDir);
-			const costState = readJsonSync<CostState>(path.join(this.coordDir, "cost.json"));
-			const taskQueue = readJsonSync<TaskQueue>(path.join(this.coordDir, "tasks.json"));
+			const costState = readJsonSync<CostState>(path.join(this.coordDir, "cost.json")) || {
+				total: 0,
+				byPhase: {} as Record<PipelinePhase, number>,
+				byWorker: {},
+				limit: 40,
+				limitReached: false,
+			};
 			const tasks = taskQueue?.tasks || [];
 
 			let currentPhase: PipelinePhase = "scout";

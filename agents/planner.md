@@ -1,7 +1,7 @@
 ---
 name: planner
 description: Creates task graphs from plans with verification and self-review
-model: claude-opus-4-5
+# model: (inferred from pi defaultModel)
 tools: read, bash
 system-prompt-mode: override
 ---

@@ -5,6 +5,15 @@ description: Multi-agent coordination for parallel plan execution with the coord
 
 # Coordination Skill
 
+> ⚠️ **Extension Health Check:** If `plan()` or `coordinate()` crash, the `pi-coordination` extension may have a known bug. Two issues have been seen:
+> 1. **`The "path" argument must be of type string` / `onUpdate is not a function`** — Parameter-order mismatch in `execute()`. The framework calls `execute(toolCallId, params, signal, onUpdate, ctx)`. If the extension had `execute(toolCallId, params, onUpdate, ctx, signal)`, `ctx` receives the callback and `ctx.cwd` becomes undefined. Swap positions 3–5 in `plan/index.ts`, `coordinate/index.ts`, and `read-context/index.ts`.
+> 2. **`ENOENT tasks.json`** — In the **two-track architecture**, `coordinate()` disables the internal planner (`planner: { enabled: false }`) because planning now lives in the separate `plan()` tool. When a markdown spec is passed directly to `coordinate()`, the parsed `SpecTask[]` must be converted into a `Task[]` queue and written as `tasks.json`. If `tasks.json` is missing, downstream review/fix phases crash with `ENOENT`. Patch `coordinate/index.ts` to call `taskQueue.createFromPlan(...)` inline after spec validation.
+> 3. **`TypeError: Cannot read properties of undefined (reading 'toFixed')`** — Cost tracking across phases can produce `undefined` or `NaN` values (e.g. missing `"integration"` in `initializeCostState().byPhase`, or `result.usage.cost` being undefined early in a worker run). Formatting code calls `.toFixed()` directly. Patch: guard every `.toFixed()` with `Number.isFinite()` checks and add the missing phase key.
+>
+> Both fixes require a **new pi session** to take effect (Node ESM module cache). If you cannot restart, fall back to `pi_messenger({ action: "plan" })` → `pi_messenger({ action: "work" })`.
+
+# Coordination Skill
+
 Multi-agent coordination for parallel task execution using the **two-track architecture**:
 - `plan` tool: Create specs from prose/PRDs (interview → scout → elaborate → structure)
 - `coordinate` tool: Execute TASK-XX format specs (validate → dispatch → execute → review)
@@ -21,8 +30,25 @@ Multi-agent coordination for parallel task execution using the **two-track archi
 │           → scout                              → dispatch       │
 │           → elaborate                          → workers        │
 │           → structure                          → review         │
-│           → spec.md ─────────────────────────→                  │
+│           → spec.md ─────────────────────────→ fixtures, etc.  │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+### Fallback When pi-coordination Is Unavailable
+
+If the extension is broken or unavailable, use `pi-messenger` crew as the drop-in replacement:
+
+| What you need | pi-coordination | pi-messenger crew fallback |
+|---|---|---|
+| Plan from PRD | `plan({ input: "./prd.md" })` | `pi_messenger({ action: "plan", prd: "./prd.md" })` |
+| Parallel build | `coordinate({ plan: "./spec.md", agents: 4 })` | `pi_messenger({ action: "work", autonomous: true })` |
+| Review output | Built-in review cycles | `pi_messenger({ action: "review", target: "task-1" })` |
+| Read worker output | `coord_output({ ids: ["worker-04ea"] })` | Crew writes to `.pi/messenger/crew/` logs |
+
+```typescript
+// Fallback pipeline
+pi_messenger({ action: "plan", prd: "./plan.md", autoWork: false })
+pi_messenger({ action: "work", autonomous: true })
 ```
 
 ## When to Use Each Tool
@@ -36,6 +62,41 @@ Multi-agent coordination for parallel task execution using the **two-track archi
 - User has a **valid TASK-XX format spec**
 - User says "implement", "execute", "run", "coordinate"
 - The file already contains `## TASK-XX:` sections
+
+## Model Resolution
+
+Both tools resolve models in this priority:
+
+```
+1. User param (per-call override)
+       ↓
+2. Agent frontmatter `model:` field
+       ↓
+3. Pi's global defaultModel
+```
+
+**Important change:** The built-in agent files (`coordinator`, `worker`, `reviewer`, `planner`, `scout`) no longer hardcode Anthropic Claude models. Their `model:` frontmatter is commented out, so **they inherit your system defaultModel**.
+
+**Per-agent overrides via `coordinate()`:**
+```typescript
+coordinate({
+  plan: "./spec.md",
+  coordinator: "opencode-go/deepseek-v4-pro",   // orchestration agent
+  worker: "ollama-cloud/kimi-k2.6",             // parallel task workers
+  reviewer: "opencode-go/deepseek-v4-pro",      // code review
+})
+```
+
+**Plan phase overrides via `plan()`:**
+```typescript
+plan({
+  input: "./requirements.md",
+  model: "ollama-cloud/kimi-k2.6",        // interview, elaborate, structure
+  scoutModel: "ollama-cloud/kimi-k2.6",   // codebase scout
+})
+```
+
+**Note:** If your models are free (e.g. local Ollama), set `costLimit: 0` in `coordinate()` to skip cost tracking.
 
 ## Coordinate Tool
 
@@ -60,16 +121,17 @@ coordinate({
   reviewCycles: number | false,    // Worker self-review cycles (default: 5, false to disable)
   supervisor: boolean | object,    // Monitor stuck workers (default: true)
   costLimit: number,               // End gracefully at limit (default: $40)
-  
+
   // Async mode
   async: boolean,                  // Run in background (default: false)
-  
+
   // Advanced
-  maxFixCycles: number,            // Review/fix iterations (default: 3)
-  validate: boolean,               // Run validation after (default: false)
+  maxFixCycles: number,            // Review/fix iterations (default: 5)
+  sameIssueLimit: number,          // Times same issue can recur before giving up (default: 2)
   checkTests: boolean,             // Reviewer checks tests (default: true)
-  
+
   // Model overrides (string sets model, object for full config)
+  // If omitted, each agent inherits pi's defaultModel
   coordinator: string | { model: string },
   worker: string | { model: string },
   reviewer: string | { model: string },
@@ -79,7 +141,7 @@ coordinate({
 ### Examples
 
 ```typescript
-// Basic - 4 workers
+// Basic - 4 workers using system default
 coordinate({ plan: "./spec.md" })
 
 // More workers
@@ -91,10 +153,12 @@ coordinate({ plan: "./spec.md", async: true })
 // Disable self-review for speed
 coordinate({ plan: "./spec.md", reviewCycles: false })
 
-// Custom models
-coordinate({ 
+// Custom models (e.g. local Ollama)
+coordinate({
   plan: "./spec.md",
-  worker: "claude-sonnet-4-20250514"
+  worker: "ollama-cloud/kimi-k2.6",
+  reviewer: "opencode-go/deepseek-v4-pro",
+  costLimit: 0,   // free models
 })
 ```
 
@@ -131,20 +195,20 @@ plan({ input: "./prd.md", skipInterview: true })
 plan({
   // For NEW plans
   input: string,                   // File path or inline text
-  
+
   // For REFINING existing specs
   continue: string,                // Path to existing spec to refine
-  
+
   // Options
   skipInterview: boolean,          // Skip interactive interview (default: false)
   skipScout: boolean,              // Skip codebase analysis (default: false)
   maxInterviewRounds: number,      // Limit interview rounds (default: 5 new, 3 refine)
   output: string,                  // Where to save spec (default: auto-named in specs/)
   format: "markdown" | "json",     // Output format (default: markdown)
-  
-  // Model overrides
-  model: string,                   // Model for elaboration (default: frontier)
-  scoutModel: string,              // Model for scout (default: fast)
+
+  // Model overrides — inferred from pi defaultModel if not set
+  model: string,                   // Model for interview, elaborate, structure
+  scoutModel: string,              // Model for codebase scout
 })
 ```
 
@@ -209,7 +273,7 @@ coordinate({ plan: "./valid-spec.md" })
 
 **Async mode:** Use `/jobs` command to open full dashboard:
 - Pipeline status
-- Task queue with dependencies  
+- Task queue with dependencies
 - Worker status with cost/duration
 - Event stream
 

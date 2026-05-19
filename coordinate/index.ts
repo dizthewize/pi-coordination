@@ -106,6 +106,9 @@ import { createStreamingValidator, type StreamingValidator } from "./validation/
 // import { runInlineQuestionsTUI, type Answer } from "./inline-questions-tui.js";
 import { parseSpec } from "./spec-parser.js";
 import { validateSpec, formatValidationResult } from "./spec-validator.js";
+import { TaskQueueManager } from "./task-queue.js";
+import type { Task, TaskPriority } from "./types.js";
+import type { SpecTask } from "./spec-parser.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -122,6 +125,26 @@ const jitiCliPath: string | undefined = (() => {
 
 function hash(content: string): string {
 	return createHash("sha256").update(content).digest("hex").slice(0, 16);
+}
+
+function mapPriority(p: string): number {
+	const map: Record<string, number> = { P0: 0, P1: 1, P2: 2, P3: 3 };
+	return map[p] ?? 2;
+}
+
+function specTasksToQueueTasks(specTasks: SpecTask[]): Task[] {
+	return specTasks.map(t => ({
+		id: t.id,
+		description: t.description || t.title,
+		priority: mapPriority(t.priority),
+		priorityLabel: t.priority as TaskPriority,
+		status: t.status,
+		files: t.files.map(f => f.path),
+		dependsOn: t.dependsOn,
+		acceptanceCriteria: t.acceptance ? [t.acceptance] : undefined,
+		parentTaskId: t.parentTaskId,
+		blockedBy: t.blockedBy,
+	}));
 }
 
 async function writeSharedContextFile(
@@ -555,10 +578,16 @@ See: pi-coordination README for spec format documentation.`,
 	// Scout and planner phases are now in the plan tool
 	console.log(`[coordinate] Starting execution with ${parsedSpec.tasks.length} tasks`);
 
+	const planHash = hash(planContent);
+
+	// When planner is disabled (two-track), create tasks.json directly from parsed spec
+	const taskQueue = new TaskQueueManager(coordDir);
+	await taskQueue.createFromPlan(planPath, planHash, specTasksToQueueTasks(parsedSpec.tasks));
+
 	const initialState: CoordinationState = {
 		sessionId: coordSessionId,
 		planPath,
-		planHash: hash(planContent),
+		planHash,
 		status: "analyzing",
 		contracts: {},
 		deviations: [],
@@ -1248,7 +1277,7 @@ export function createCoordinateTool(events: EventBus): ToolDefinition<typeof Co
 			"Start multi-agent coordination session. Pass any markdown file (spec, PRD, plan) directly - the planner decomposes it into parallel tasks. Don't rewrite or convert the file first. Saves a markdown log to the project directory (configurable via logPath parameter or PI_COORDINATION_LOG_DIR env var).",
 		parameters: CoordinateParams,
 
-		async execute(_toolCallId, params, onUpdate, ctx, signal) {
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const typedParams = params as CoordinateParamsType;
 			const resultsDir = resolveAsyncResultsDir(ctx.cwd, typedParams.asyncResultsDir);
 

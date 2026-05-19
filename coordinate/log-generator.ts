@@ -35,8 +35,8 @@ function formatTimestamp(ts: number): string {
 }
 
 function formatRelativeTime(ts: number, baseTs: number): string {
-	const diff = (ts - baseTs) / 1000;
-	return `+${diff.toFixed(1)}s`;
+	const diff = Number.isFinite(ts) && Number.isFinite(baseTs) ? (ts - baseTs) / 1000 : NaN;
+	return `+${Number.isFinite(diff) ? diff.toFixed(1) : "—"}s`;
 }
 
 export function generateCoordinationLog(data: LogData): string {
@@ -75,14 +75,14 @@ export function generateCoordinationLog(data: LogData): string {
 			: `ended with status: ${state.status}`;
 	lines.push(`## Executive Summary`);
 	lines.push(``);
-	lines.push(`This coordination session executed the **${path.basename(planPath)}** plan in ${formatDuration(duration)}. ${successCount} workers completed ${workerStates.reduce((sum, w) => sum + w.completedSteps.length, 0)} tasks${reviewCycles > 0 ? ` with ${reviewCycles} review cycle(s)` : ""}. Total cost: $${totalCost.toFixed(4)}. Outcome: ${outcomeText}.`);
+	lines.push(`This coordination session executed the **${path.basename(planPath)}** plan in ${formatDuration(duration)}. ${successCount} workers completed ${workerStates.reduce((sum, w) => sum + w.completedSteps.length, 0)} tasks${reviewCycles > 0 ? ` with ${reviewCycles} review cycle(s)` : ""}. Total cost: $${Number.isFinite(totalCost) ? totalCost.toFixed(4) : "—"}. Outcome: ${outcomeText}.`);
 	lines.push(``);
 
 	lines.push(`**Session ID:** \`${sessionId}\``);
 	lines.push(`**Status:** ${state.status === "complete" ? "Completed" : state.status}`);
 	lines.push(`**Started:** ${formatTimestamp(startedAt)}`);
 	lines.push(`**Duration:** ${formatDuration(duration)}`);
-	lines.push(`**Total Cost:** $${totalCost.toFixed(4)}`);
+	lines.push(`**Total Cost:** $${Number.isFinite(totalCost) ? totalCost.toFixed(4) : "—"}`);
 	lines.push(`**Workers:** ${successCount}/${workerStates.length} succeeded${failedCount > 0 ? `, ${failedCount} failed` : ""}`);
 	lines.push(``);
 
@@ -100,7 +100,7 @@ export function generateCoordinationLog(data: LogData): string {
 			const phaseDuration = result.startedAt && result.completedAt 
 				? formatDuration(result.completedAt - result.startedAt)
 				: "--";
-			const phaseCost = costState?.byPhase[phase] 
+			const phaseCost = costState?.byPhase[phase] != null && Number.isFinite(costState.byPhase[phase])
 				? `$${costState.byPhase[phase].toFixed(2)}`
 				: "--";
 			const notes = result.error || "";
@@ -138,7 +138,7 @@ export function generateCoordinationLog(data: LogData): string {
 			? w.filesModified.map(f => `\`${path.basename(f)}\``).join(", ")
 			: "--";
 		
-		lines.push(`| ${w.identity} | ${statusIcon} | ${wDuration} | $${w.usage.cost.toFixed(4)} | ${w.usage.turns} | ${files} |`);
+		lines.push(`| ${w.identity} | ${statusIcon} | ${wDuration} | $${Number.isFinite(w.usage?.cost) ? w.usage.cost.toFixed(4) : "—"} | ${w.usage?.turns ?? "—"} | ${files} |`);
 	}
 	lines.push(``);
 
@@ -188,16 +188,16 @@ export function generateCoordinationLog(data: LogData): string {
 				line += `[${ev.workerId.slice(0, 8)}] Received "${ev.item}" from ${ev.from}`;
 				break;
 			case "cost_milestone":
-				line += `**Cost milestone:** $${ev.aggregate.toFixed(2)}`;
+				line += `**Cost milestone:** $${Number.isFinite(ev.aggregate) ? ev.aggregate.toFixed(2) : "—"}`;
 				break;
 			case "coordinator":
 				line += `[coordinator] ${ev.message}`;
 				break;
 			case "phase_complete":
-				line += `**Phase ${ev.phase} complete** (${formatDuration(ev.duration)}, $${ev.cost.toFixed(2)})`;
+				line += `**Phase ${ev.phase} complete** (${formatDuration(ev.duration)}, $${Number.isFinite(ev.cost) ? ev.cost.toFixed(2) : "—"})`;
 				break;
 			case "cost_limit_reached":
-				line += `**Cost limit reached:** $${ev.total.toFixed(2)}`;
+				line += `**Cost limit reached:** $${Number.isFinite(ev.total) ? ev.total.toFixed(2) : "—"}`;
 				break;
 		}
 
@@ -255,7 +255,7 @@ export function generateCoordinationLog(data: LogData): string {
 			lines.push(`- **All Passing:** ${review.allPassing ? "Yes" : "No"}`);
 			lines.push(`- **Summary:** ${review.summary}`);
 			lines.push(`- **Duration:** ${formatDuration(review.duration)}`);
-			lines.push(`- **Cost:** $${review.cost.toFixed(4)}`);
+			lines.push(`- **Cost:** $${Number.isFinite(review.cost) ? review.cost.toFixed(4) : "—"}`);
 			lines.push(``);
 
 			if (review.issues.length > 0) {
@@ -284,13 +284,13 @@ export function generateCoordinationLog(data: LogData): string {
 	if (costState) {
 		lines.push(`## Cost Breakdown`);
 		lines.push(``);
-		lines.push(`**Total:** $${costState.total.toFixed(4)}`);
+		lines.push(`**Total:** $${Number.isFinite(costState.total) ? costState.total.toFixed(4) : "—"}`);
 		lines.push(``);
 
 		if (Object.keys(costState.byPhase).length > 0) {
 			lines.push(`**By Phase:**`);
 			for (const [phase, cost] of Object.entries(costState.byPhase)) {
-				if (cost > 0) {
+				if (cost != null && Number.isFinite(cost) && cost > 0) {
 					lines.push(`- ${phase}: $${cost.toFixed(4)}`);
 				}
 			}
@@ -300,14 +300,14 @@ export function generateCoordinationLog(data: LogData): string {
 		if (Object.keys(costState.byWorker).length > 0) {
 			lines.push(`**By Worker:**`);
 			for (const [workerId, cost] of Object.entries(costState.byWorker)) {
-				if (cost > 0) {
+				if (cost != null && Number.isFinite(cost) && cost > 0) {
 					lines.push(`- ${workerId.slice(0, 8)}: $${cost.toFixed(4)}`);
 				}
 			}
 			lines.push(``);
 		}
 
-		lines.push(`**Limit:** $${costState.limit.toFixed(2)}${costState.limitReached ? " (reached)" : ""}`);
+		lines.push(`**Limit:** $${Number.isFinite(costState.limit) ? costState.limit.toFixed(2) : "—"}${costState.limitReached ? " (reached)" : ""}`);
 		lines.push(``);
 	}
 

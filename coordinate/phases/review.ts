@@ -182,7 +182,7 @@ Use "newTasks" for larger work that needs a dedicated worker (e.g., new features
 		allPassing: parsed.allPassing ?? issues.length === 0,
 		filesReviewed: modifiedFiles,
 		duration: Date.now() - startTime,
-		cost: result.usage.cost,
+		cost: result.usage?.cost ?? 0,
 		newTasks: newTasks.length > 0 ? newTasks : undefined,
 	};
 }
