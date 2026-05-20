@@ -72,18 +72,20 @@ Both tools resolve models in this priority:
        ↓
 2. Agent frontmatter `model:` field
        ↓
-3. Pi's global defaultModel
+3. Extension default — opencode-go/kimi-k2.6 (coordinator/worker/scout/planner), opencode-go/minimax-m2.7 (reviewer)
+       ↓
+4. Pi's global defaultModel (ollama-cloud models auto-translated to opencode-go)
 ```
 
-**Important change:** The built-in agent files (`coordinator`, `worker`, `reviewer`, `planner`, `scout`) no longer hardcode Anthropic Claude models. Their `model:` frontmatter is commented out, so **they inherit your system defaultModel**.
+**Important:** The built-in agent files (`coordinator`, `worker`, `reviewer`, `planner`, `scout`) now have **extension-level defaults** using opencode-go models, since ollama-cloud is not natively supported by Pi. You only need to set a model if you want to override the defaults.
 
 **Per-agent overrides via `coordinate()`:**
 ```typescript
 coordinate({
   plan: "./spec.md",
-  coordinator: "opencode-go/deepseek-v4-pro",   // orchestration agent
-  worker: "ollama-cloud/kimi-k2.6",             // parallel task workers
-  reviewer: "opencode-go/deepseek-v4-pro",      // code review
+  coordinator: "opencode-go/kimi-k2.6",   // orchestration agent
+  worker: "opencode-go/kimi-k2.6",         // parallel task workers
+  reviewer: "opencode-go/minimax-m2.7",   // code review
 })
 ```
 
@@ -91,8 +93,8 @@ coordinate({
 ```typescript
 plan({
   input: "./requirements.md",
-  model: "ollama-cloud/kimi-k2.6",        // interview, elaborate, structure
-  scoutModel: "ollama-cloud/kimi-k2.6",   // codebase scout
+  model: "opencode-go/kimi-k2.6",        // interview, elaborate, structure
+  scoutModel: "opencode-go/kimi-k2.6",   // codebase scout
 })
 ```
 
@@ -156,8 +158,8 @@ coordinate({ plan: "./spec.md", reviewCycles: false })
 // Custom models (e.g. local Ollama)
 coordinate({
   plan: "./spec.md",
-  worker: "ollama-cloud/kimi-k2.6",
-  reviewer: "opencode-go/deepseek-v4-pro",
+  worker: "opencode-go/kimi-k2.6",
+  reviewer: "opencode-go/minimax-m2.7",
   costLimit: 0,   // free models
 })
 ```

@@ -137,9 +137,9 @@ Use `false` to disable features:
 ```json
 {
   "models": {
-    "coordinator": "opencode-go/deepseek-v4-pro",
-    "worker": "ollama-cloud/kimi-k2.6",
-    "reviewer": "opencode-go/deepseek-v4-pro"
+    "coordinator": "opencode-go/kimi-k2.6",
+    "worker": "opencode-go/kimi-k2.6",
+    "reviewer": "opencode-go/minimax-m2.7"
   }
 }
 ```
@@ -222,32 +222,33 @@ coordinate({
   validate: true,
   reviewCycles: 5,              // worker self-review cycles (false to disable)
   supervisor: true,             // or { nudgeThresholdMs: 180000, ... }
-  coordinator: "opencode-go/deepseek-v4-pro",
-  worker: "ollama-cloud/kimi-k2.6",
-  reviewer: "opencode-go/deepseek-v4-pro"
+  coordinator: "opencode-go/kimi-k2.6",
+  worker: "opencode-go/kimi-k2.6",
+  reviewer: "opencode-go/minimax-m2.7"
 })
 ```
 
 **Note:** The `coordinate` tool requires a valid TASK-XX format spec. If your input isn't a valid spec, you'll get an error suggesting to use the `plan` tool first.
 
 **Model Resolution Order**: For each phase, models are resolved in this priority:
-1. Per-call parameter (e.g., `worker: "opencode-go/deepseek-v4-pro"`)
+1. Per-call parameter (e.g., `worker: "opencode-go/kimi-k2.6"`)
 2. Agent frontmatter `model:` field in `~/.pi/agent/agents/coordination/*.md`
-3. Pi's global `defaultModel` from `~/.pi/agent/settings.json`
+3. **Extension default** — `opencode-go/kimi-k2.6` for coordinator/worker/scout/planner, `opencode-go/minimax-m2.7` for reviewer
+4. Pi's global `defaultModel` from `~/.pi/agent/settings.json` (ollama-cloud models are auto-translated to opencode-go equivalents)
 
-**Important change:** The built-in coordination agents (`coordinator`, `worker`, `reviewer`, `planner`, `scout`) no longer hardcode Anthropic Claude models. Their `model:` frontmatter fields are commented out, so they **inherit your system defaultModel** by default. This means they automatically use whatever model pi is currently set to.
+**Important:** The built-in coordination agents (`coordinator`, `worker`, `reviewer`, `planner`, `scout`) now have **extension-level defaults** using opencode-go models, since ollama-cloud is not natively supported by Pi. You only need to set a model if you want to override the defaults.
 
 **Per-agent override examples:**
 ```typescript
-// All agents use system default
+// All agents use extension defaults (no overrides needed)
 coordinate({ plan: "./spec.md", agents: 4 })
 
 // Override specific agents
 coordinate({
   plan: "./spec.md",
-  coordinator: "opencode-go/deepseek-v4-pro",   // complex orchestration
-  worker: "ollama-cloud/kimi-k2.6",             // parallel tasks
-  reviewer: "opencode-go/deepseek-v4-pro",    // code review
+  coordinator: "opencode-go/kimi-k2.6",   // complex orchestration
+  worker: "opencode-go/kimi-k2.6",         // parallel tasks
+  reviewer: "opencode-go/minimax-m2.7",   // code review
 })
 
 // Free local models — disable cost tracking
@@ -888,7 +889,7 @@ Agent prompts are defined in markdown files with YAML frontmatter:
 ---
 name: my-agent
 description: What this agent does
-# model: opencode-go/deepseek-v4-pro  # optional — omit to inherit defaultModel
+# model: opencode-go/kimi-k2.6  # optional — omit to use extension default
 tools: read, bash
 system-prompt-mode: override
 ---
@@ -901,13 +902,13 @@ Your custom system prompt here...
 ---
 name: my-worker
 description: Custom worker with override model
-# model: "opencode-go/deepseek-v4-pro"   # optional — omit to inherit defaultModel
+# model: "opencode-go/kimi-k2.6"   # optional — omit to use extension default
 tools: read, bash
 system-prompt-mode: append
 ---
 ```
 
-By default, no `model:` is specified. This makes the agent inherit pi's current `defaultModel` (e.g. `ollama-cloud/kimi-k2.6`), so it automatically follows whatever model the user has selected in their system settings. To force a specific model, add `model: your-model-name`.
+By default, no `model:` is specified. This makes the agent use the **extension default** (`opencode-go/kimi-k2.6` for most agents, `opencode-go/minimax-m2.7` for reviewer). To force a specific model, add `model: your-model-name`.
 
 **System prompt modes:**
 - `append` — Agent prompt is **added** to pi's default coding assistant prompt

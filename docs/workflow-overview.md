@@ -182,8 +182,8 @@ plan({
   format: "markdown" | "json",      // Output format (default: markdown)
 
   // Models
-  model: string,                    // Model for elaboration (default: frontier)
-  scoutModel: string,               // Model for scout (default: fast)
+  model: string,                    // Model for elaboration (default: opencode-go/kimi-k2.6)
+  scoutModel: string,               // Model for scout (default: opencode-go/kimi-k2.6)
 
   // Behavior
   maxInterviewRounds: number,       // Limit interview rounds (default: 5 new, 3 refine)
@@ -365,10 +365,10 @@ coordinate({
   validate: boolean,                // Run validation after (default: false)
   validateStream: boolean,          // Stream warnings (default: false)
 
-  // Model overrides — if omitted, each agent inherits pi's defaultModel
-  coordinator: string | { model: string },
-  worker: string | { model: string },
-  reviewer: string | { model: string },
+  // Model overrides — if omitted, each agent uses extension defaults
+  coordinator: string | { model: string },  // default: opencode-go/kimi-k2.6
+  worker: string | { model: string },       // default: opencode-go/kimi-k2.6
+  reviewer: string | { model: string },     // default: opencode-go/minimax-m2.7,
 })
 ```
 
