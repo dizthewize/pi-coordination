@@ -4,6 +4,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { Message } from "@mariozechner/pi-ai";
+import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 import type { AgentConfig } from "./agents.js";
 import { getFinalOutput, getResultOutput } from "./render.js";
 import { createArtifactPaths } from "./artifacts.js";
@@ -47,7 +48,7 @@ export async function runSingleAgent(
 	signal: AbortSignal | undefined,
 	onUpdate: OnUpdateCallback | undefined,
 	makeDetails: (results: SingleResult[]) => SubagentDetails,
-	options?: { outputLimits?: OutputLimits; artifactsDir?: string; artifactLabel?: string; extensions?: string[]; attachments?: string[]; useSubprocess?: boolean },
+	options?: { outputLimits?: OutputLimits; artifactsDir?: string; artifactLabel?: string; extensions?: string[]; attachments?: string[]; useSubprocess?: boolean; customTools?: ToolDefinition[] },
 ): Promise<SingleResult> {
 	const agent = agents.find((a) => a.name === agentName);
 
@@ -78,6 +79,7 @@ export async function runSingleAgent(
 			artifactLabel: options?.artifactLabel,
 			step,
 			extensions: options?.extensions,
+			customTools: options?.customTools,
 		});
 	}
 

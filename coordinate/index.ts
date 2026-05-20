@@ -82,6 +82,7 @@ function loadCoordinationSettings(): NormalizedSettings {
 import { runSingleAgent, type AgentRuntime } from "../subagent/runner.js";
 import type { SingleResult, SubagentDetails } from "../subagent/types.js";
 import { FileBasedStorage } from "./state.js";
+import { createCoordinatorTools } from "./coordinator-tools/index.js";
 import { generateCoordinationLog } from "./log-generator.js";
 import { CheckpointManager } from "./checkpoint.js";
 import {
@@ -1039,22 +1040,35 @@ See: pi-coordination README for spec format documentation.`,
 			const coordAgents = pipelineConfig.models?.coordinator
 				? augmentedAgents.map(a => a.name === "coordination/coordinator" ? { ...a, model: pipelineConfig.models!.coordinator } : a)
 				: augmentedAgents;
-			coordinatorResult = await runSingleAgent(
-				runtime,
-				coordAgents,
-				"coordination/coordinator",
-				task,
-				planDir,
-				undefined,
-				signal,
-				coordOnUpdate,
-				makeDetails,
-				{
-					outputLimits: pipelineConfig.maxOutput,
-					artifactsDir: path.join(coordDir, "artifacts"),
-					artifactLabel: "coordinator",
-				},
-			);
+
+			// Set env vars so createCoordinatorTools() can read them
+			const previousIdentity = process.env.PI_AGENT_IDENTITY;
+			process.env.PI_AGENT_IDENTITY = "coordination/coordinator";
+			try {
+				coordinatorResult = await runSingleAgent(
+					runtime,
+					coordAgents,
+					"coordination/coordinator",
+					task,
+					planDir,
+					undefined,
+					signal,
+					coordOnUpdate,
+					makeDetails,
+					{
+						outputLimits: pipelineConfig.maxOutput,
+						artifactsDir: path.join(coordDir, "artifacts"),
+						artifactLabel: "coordinator",
+						customTools: createCoordinatorTools(),
+					},
+				);
+			} finally {
+				if (previousIdentity !== undefined) {
+					process.env.PI_AGENT_IDENTITY = previousIdentity;
+				} else {
+					delete process.env.PI_AGENT_IDENTITY;
+				}
+			}
 			lastCoordResult = coordinatorResult;
 
 			const workerStatesAfterCoord = await storage.listWorkerStates();

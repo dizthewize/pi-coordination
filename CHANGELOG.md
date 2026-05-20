@@ -23,7 +23,7 @@ All notable changes to pi-coordination.
   - If your system uses `ollama-cloud`, `opencode-go`, or other providers, the extension now uses them automatically.
   - Per-agent overrides still work via `coordinate({ coordinator: "model", worker: "model", reviewer: "model" })`.
   - `plan()` tool `model`/`scoutModel` descriptions updated to say "inferred from pi defaultModel" instead of the old `frontier`/`fast` defaults.
-- **SDK runner model resolution** — Fixed `discoverAuthStorage is not a function` by using the actual SDK API (`new AuthStorage(new InMemoryAuthStorageBackend())` + `ModelRegistry.inMemory()`). Added `ollama-cloud` → `opencode-go` provider alias so models like `ollama-cloud/kimi-k2.6` resolve correctly.
+- **Coordinator tools not passed to coordinator agent** — `coordinate()` dispatched 0 workers because the coordinator agent's SDK session didn't receive the internal coordinator tools (`spawn_from_queue`, `check_status`, `done`, etc.). These tools were defined in `coordinator-tools/index.ts` but never passed through the `runSingleAgent` → `runAgentSDK` chain. Added `customTools` option to `runSingleAgent` and `runAgentSDK`, and wired it up in the coordinator phase of `coordinate/index.ts`.
 
 ### Documentation
 - Updated `skills/coordination/SKILL.md` with model resolution section and cost-safety health check item.
