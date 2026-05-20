@@ -82,7 +82,6 @@ function loadCoordinationSettings(): NormalizedSettings {
 import { runSingleAgent, type AgentRuntime } from "../subagent/runner.js";
 import type { SingleResult, SubagentDetails } from "../subagent/types.js";
 import { FileBasedStorage } from "./state.js";
-import { createCoordinatorTools } from "./coordinator-tools/index.js";
 import { generateCoordinationLog } from "./log-generator.js";
 import { CheckpointManager } from "./checkpoint.js";
 import {
@@ -1041,10 +1040,15 @@ See: pi-coordination README for spec format documentation.`,
 				? augmentedAgents.map(a => a.name === "coordination/coordinator" ? { ...a, model: pipelineConfig.models!.coordinator } : a)
 				: augmentedAgents;
 
-			// Set env vars so createCoordinatorTools() can read them
+			// Set env vars so the coordinator extension (loaded in subprocess) can read them
 			const previousIdentity = process.env.PI_AGENT_IDENTITY;
 			process.env.PI_AGENT_IDENTITY = "coordination/coordinator";
 			try {
+				// NOTE: We force subprocess mode for the coordinator because Pi SDK's
+				// customTools don't translate to native Anthropic tool schemas — the model
+				// outputs <tool_call> text tags that the SDK treats as plain text, so no
+				// tools are ever executed. Subprocess mode loads the coordinator extension
+				// via the Pi CLI, which properly registers tools with the model.
 				coordinatorResult = await runSingleAgent(
 					runtime,
 					coordAgents,
@@ -1059,7 +1063,8 @@ See: pi-coordination README for spec format documentation.`,
 						outputLimits: pipelineConfig.maxOutput,
 						artifactsDir: path.join(coordDir, "artifacts"),
 						artifactLabel: "coordinator",
-						customTools: createCoordinatorTools(),
+						useSubprocess: true,
+						extensions: [coordinatorExtensionPath],
 					},
 				);
 			} finally {
