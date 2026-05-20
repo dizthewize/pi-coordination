@@ -1,7 +1,7 @@
 ---
 name: scout
 description: Analyzes codebase to provide structured context for coordination planner
-# model: (inferred from pi defaultModel)
+# model: opencode-go/kimi-k2.6 (extension default)
 tools: read, bash, write
 extensions: ../../extensions/coordination/hooks/enforce-scout-format.ts
 system-prompt-mode: override

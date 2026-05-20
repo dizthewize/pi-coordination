@@ -690,15 +690,30 @@ See: pi-coordination README for spec format documentation.`,
 
 	const defaultModel = options.defaultModel;
 	// Helper to get agent's frontmatter model
-	const getAgentModel = (name: string): string | undefined => 
+	const getAgentModel = (name: string): string | undefined =>
 		agents.find(a => a.name === name)?.model;
-	
-	// Model resolution: param > agent frontmatter > pi's defaultModel
+
+	// Extension-level defaults: opencode-go models (Pi does not natively support ollama-cloud)
+	const EXTENSION_DEFAULTS: Record<string, string> = {
+		coordinator: "opencode-go/kimi-k2.6",
+		worker: "opencode-go/kimi-k2.6",
+		reviewer: "opencode-go/minimax-m2.7",
+	};
+	// If pi's defaultModel uses an unsupported provider, translate to opencode-go equivalent
+	const resolvePiDefault = (piDefault: string | undefined): string | undefined => {
+		if (!piDefault) return undefined;
+		if (piDefault.startsWith("ollama-cloud/")) {
+			return piDefault.replace("ollama-cloud/", "opencode-go/");
+		}
+		return piDefault;
+	};
+
+	// Model resolution: param > agent frontmatter > extension default > pi defaultModel (translated)
 	// Note: scout and planner are omitted - those phases are now in plan tool
 	const models = {
-		coordinator: paramCoordinator?.model || getAgentModel("coordination/coordinator") || defaultModel,
-		worker: paramWorker?.model || getAgentModel("coordination/worker") || defaultModel,
-		reviewer: paramReviewer?.model || getAgentModel("coordination/reviewer") || defaultModel,
+		coordinator: paramCoordinator?.model || getAgentModel("coordination/coordinator") || EXTENSION_DEFAULTS.coordinator || resolvePiDefault(defaultModel),
+		worker: paramWorker?.model || getAgentModel("coordination/worker") || EXTENSION_DEFAULTS.worker || resolvePiDefault(defaultModel),
+		reviewer: paramReviewer?.model || getAgentModel("coordination/reviewer") || EXTENSION_DEFAULTS.reviewer || resolvePiDefault(defaultModel),
 	};
 
 	const reviewCycles = params.reviewCycles ?? settings.reviewCycles ?? 5;

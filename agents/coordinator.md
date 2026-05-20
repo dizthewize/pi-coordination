@@ -1,7 +1,7 @@
 ---
 name: coordinator
 description: Coordinates parallel workers to execute plans with dependency management
-# model: (inferred from pi defaultModel)
+# model: opencode-go/kimi-k2.6 (extension default)
 tools: read, bash
 system-prompt-mode: override
 ---

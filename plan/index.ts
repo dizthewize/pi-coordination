@@ -44,8 +44,8 @@ const PlanParams = Type.Object({
 	output: Type.Optional(Type.String({ description: "Where to save spec (default: auto-named in specs/)" })),
 
 	// Models
-	model: Type.Optional(Type.String({ description: "Model for elaboration (inferred from pi defaultModel if not set)" })),
-	scoutModel: Type.Optional(Type.String({ description: "Model for scout (inferred from pi defaultModel if not set)" })),
+	model: Type.Optional(Type.String({ description: "Model for elaboration (default: opencode-go/kimi-k2.6)" })),
+	scoutModel: Type.Optional(Type.String({ description: "Model for scout (default: opencode-go/kimi-k2.6)" })),
 
 	// Behavior
 	maxInterviewRounds: Type.Optional(Type.Number({ description: "Limit interview rounds (default: 5 new, 3 refine)" })),
@@ -110,6 +110,12 @@ async function runPlan(
 		structure: 0,
 		total: 0,
 	};
+
+	// Extension-level defaults (Pi does not natively support ollama-cloud)
+	const PLAN_DEFAULT_MODEL = "opencode-go/kimi-k2.6";
+	const PLAN_DEFAULT_SCOUT_MODEL = "opencode-go/kimi-k2.6";
+	const effectiveModel = params.model || PLAN_DEFAULT_MODEL;
+	const effectiveScoutModel = params.scoutModel || PLAN_DEFAULT_SCOUT_MODEL;
 
 	// Validate input parameters
 	if (!params.input && !params.continue) {
@@ -178,7 +184,7 @@ async function runPlan(
 
 		interviewResult = await runInterview(runtime, input, {
 			maxRounds: params.maxInterviewRounds ?? (isRefineMode ? 3 : 5),
-			model: params.model,
+			model: effectiveModel,
 			signal,
 			mode: isRefineMode ? "refine" : "new",
 		}, ctx);
@@ -219,7 +225,7 @@ async function runPlan(
 		});
 
 		scoutResult = await runTargetedScout(runtime, input, interviewResult, {
-			model: params.scoutModel,
+			model: effectiveScoutModel,
 			cwd: runtime.cwd,
 			signal,
 		});
@@ -237,7 +243,7 @@ async function runPlan(
 	});
 
 	const elaborateResult = await elaborate(runtime, input, interviewResult, scoutResult, {
-		model: params.model,
+		model: effectiveModel,
 		mode: isRefineMode ? "refine" : "new",
 		signal,
 	});
@@ -258,7 +264,7 @@ async function runPlan(
 		elaborateResult.plan,
 		input,
 		{
-			model: params.model,
+			model: effectiveModel,
 			signal,
 		},
 	);

@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: Reviews code changes from coordination session, looking for bugs, errors, and issues
-# model: (inferred from pi defaultModel)
+# model: opencode-go/minimax-m2.7 (extension default)
 tools: read, bash
 extensions:
   - ../../extensions/coordination/hooks/enforce-json.ts

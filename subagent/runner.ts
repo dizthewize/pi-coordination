@@ -48,7 +48,7 @@ export async function runSingleAgent(
 	signal: AbortSignal | undefined,
 	onUpdate: OnUpdateCallback | undefined,
 	makeDetails: (results: SingleResult[]) => SubagentDetails,
-	options?: { outputLimits?: OutputLimits; artifactsDir?: string; artifactLabel?: string; extensions?: string[]; attachments?: string[]; useSubprocess?: boolean; customTools?: ToolDefinition[] },
+	options?: { outputLimits?: OutputLimits; artifactsDir?: string; artifactLabel?: string; extensions?: string[]; attachments?: string[]; useSubprocess?: boolean; customTools?: ToolDefinition[]; defaultModel?: string },
 ): Promise<SingleResult> {
 	const agent = agents.find((a) => a.name === agentName);
 
@@ -65,11 +65,16 @@ export async function runSingleAgent(
 		};
 	}
 
+	// Apply extension-level default model if agent has none and one was provided
+	const effectiveAgent = agent.model || !options?.defaultModel
+		? agent
+		: { ...agent, model: options.defaultModel };
+
 	// Try to use SDK runner if available (unless explicitly using subprocess)
 	if (!options?.useSubprocess && await isSDKAvailable()) {
 		return runAgentSDK({
 			cwd: cwd ?? runtime.cwd,
-			agent,
+			agent: effectiveAgent,
 			task,
 			signal,
 			onUpdate,
@@ -90,10 +95,10 @@ export async function runSingleAgent(
 		? agent.tools!.join(", ") 
 		: (agent.systemPromptMode === "override" ? "NONE" : "default");
 	const modeLabel = agent.systemPromptMode === "override" ? "override" : "append";
-	console.log(`[subagent] ${agentName}: model=${agent.model || "default"}, tools=[${toolsList}], prompt=${modeLabel}`);
+	console.log(`[subagent] ${agentName}: model=${effectiveAgent.model || "default"}, tools=[${toolsList}], prompt=${modeLabel}`);
 
 	const args: string[] = ["--mode", "json", "-p", "--no-session"];
-	if (agent.model) args.push("--model", agent.model);
+	if (effectiveAgent.model) args.push("--model", effectiveAgent.model);
 	
 	if (agent.tools && agent.tools.length > 0) {
 		const builtinTools: string[] = [];
@@ -136,7 +141,7 @@ export async function runSingleAgent(
 		messages: [],
 		stderr: "",
 		usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
-		model: agent.model,
+		model: effectiveAgent.model,
 		step,
 		artifactPaths,
 		toolCount: 0,
