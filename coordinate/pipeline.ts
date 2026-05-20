@@ -759,6 +759,12 @@ export async function runReviewFixLoop(
 	ctx: PipelineContext,
 	config: PipelineConfig,
 ): Promise<void> {
+	// Skip review entirely when maxFixCycles is 0 (e.g. reviewCycles: false)
+	if (ctx.pipelineState.maxFixCycles === 0) {
+		ctx.pipelineState.exitReason = "clean";
+		return;
+	}
+
 	// Check cost limit before starting review loop
 	if (await checkCostLimit(ctx)) {
 		return;

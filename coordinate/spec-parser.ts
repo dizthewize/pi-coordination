@@ -20,6 +20,55 @@
  */
 
 /**
+ * Unwrap nested markdown code blocks that LLMs sometimes wrap specs in.
+ *
+ * When a spec is wrapped like:
+ *   ```markdown
+ *   # Title
+ *   ## TASK-01: ...
+ *   ```
+ *
+ * The TASK-XX headers inside may be indented, causing the parser to miss them.
+ * This function extracts the inner content and strips common indentation.
+ */
+function unwrapSpecMarkdown(markdown: string): string {
+	const lines = markdown.split("\n");
+	let startIdx = -1;
+	let endIdx = -1;
+
+	// Find first triple-backtick line (with optional info string)
+	for (let i = 0; i < lines.length; i++) {
+		const m = lines[i].match(/^(\s*)```\s*(?:markdown)?\s*$/);
+		if (m) {
+			startIdx = i;
+			break;
+		}
+	}
+
+	if (startIdx === -1) return markdown;
+
+	// Find matching closing fence
+	for (let i = startIdx + 1; i < lines.length; i++) {
+		if (lines[i].match(/^(\s*)```\s*$/)) {
+			endIdx = i;
+			break;
+		}
+	}
+
+	if (endIdx === -1) return markdown; // No closing fence — treat as plain
+
+	// Extract inner lines and compute common indent
+	const inner = lines.slice(startIdx + 1, endIdx);
+	const nonEmpty = inner.filter((l) => l.trim().length > 0);
+	const indent = nonEmpty.length > 0
+		? Math.min(...nonEmpty.map((l) => l.match(/^(\s*)/)?.[1].length ?? 0))
+		: 0;
+
+	const deindented = inner.map((l) => l.slice(indent));
+	return deindented.join("\n");
+}
+
+/**
  * Priority levels for tasks.
  */
 export type Priority = "P0" | "P1" | "P2" | "P3";
@@ -273,7 +322,9 @@ function parseTaskSection(section: string, header: { id: string; title: string }
  * Parse a spec from markdown text.
  */
 export function parseSpec(markdown: string, sourcePath?: string): Spec {
-	const lines = markdown.split("\n");
+	// Unwrap any nested markdown code blocks before parsing
+	const cleanMarkdown = unwrapSpecMarkdown(markdown);
+	const lines = cleanMarkdown.split("\n");
 	const spec: Spec = {
 		title: "",
 		tasks: [],

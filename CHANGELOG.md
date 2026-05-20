@@ -7,6 +7,8 @@ All notable changes to pi-coordination.
 ## 2026-05-19
 
 ### Fixed
+- **Spec parser nested markdown blocks** — The `parseSpec()` function now unwraps ` ```markdown` code fences that LLMs sometimes wrap specs in. Before this fix, indented TASK-XX headers inside a code block were invisible to the parser, causing `coordinate()` to dispatch zero workers ("0 tasks completed").
+- **reviewCycles: false ignored** — `reviewCycles: false` now correctly disables the entire review-fix loop (including integration review). Previously it only disabled worker self-review while the coordinator still ran up to 5 review+fix cycles with the reviewer.
 - **Cost accounting null-safety** — Fixed `TypeError: Cannot read properties of undefined (reading 'toFixed')` crashes:
   - Guarded `formatCost()` in `coordinate/render-utils.ts` and `coordinate/dashboard.ts` to return `"$—"` for `undefined`/`null`/`NaN`
   - Guarded all inline `.toFixed()` calls in `log-generator.ts`, `progress.ts`, `pipeline.ts`
@@ -21,7 +23,7 @@ All notable changes to pi-coordination.
   - If your system uses `ollama-cloud`, `opencode-go`, or other providers, the extension now uses them automatically.
   - Per-agent overrides still work via `coordinate({ coordinator: "model", worker: "model", reviewer: "model" })`.
   - `plan()` tool `model`/`scoutModel` descriptions updated to say "inferred from pi defaultModel" instead of the old `frontier`/`fast` defaults.
-- **Cost limit documentation** — Added note that `costLimit: 0` disables cost tracking, useful for free local models.
+- **SDK runner model resolution** — Fixed `discoverAuthStorage is not a function` by using the actual SDK API (`new AuthStorage(new InMemoryAuthStorageBackend())` + `ModelRegistry.inMemory()`). Added `ollama-cloud` → `opencode-go` provider alias so models like `ollama-cloud/kimi-k2.6` resolve correctly.
 
 ### Documentation
 - Updated `skills/coordination/SKILL.md` with model resolution section and cost-safety health check item.
