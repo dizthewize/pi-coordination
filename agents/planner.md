@@ -1,7 +1,7 @@
 ---
 name: planner
 description: Creates task graphs from plans with verification and self-review
-# model: opencode-go/qwen3.6-plus (extension default)
+# model: opencode-go/kimi-k2.6 (extension default)
 tools: read, bash
 system-prompt-mode: override
 ---
