@@ -756,6 +756,8 @@ Configure via `supervisor: { nudgeThresholdMs, restartThresholdMs, maxRestarts, 
 
 By default, workers run as subprocesses (separate `pi` processes). SDK worker mode runs workers in-process using the Pi SDK's `createAgentSession()` API.
 
+> **Coordinator note:** The coordinator agent always runs as a subprocess, even when SDK workers are enabled. The Pi SDK's `customTools` don't translate to Anthropic tool schemas — the model would emit `<tool_call>` text tags instead of native `tool_use` blocks, so no tools would ever execute. Workers respect `useSDKWorkers` and can run in-process, but the coordinator is always subprocess.
+
 **Enable SDK workers:**
 ```json
 // runtime-config.json in coordination directory
